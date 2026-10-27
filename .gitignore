@@ -1,0 +1,16 @@
+node_modules/
+.next/
+dist/
+__pycache__/
+*.pyc
+.env
+.env.local
+.venv/
+venv/
+*.egg-info/
+.DS_Store
+.idea/
+.vscode/
+coverage/
+*.log
+tmp/

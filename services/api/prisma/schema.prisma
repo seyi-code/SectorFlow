@@ -1,0 +1,115 @@
+// SectorFlow – production Prisma schema
+// Topology + telemetry + sector status, multi-utility ready
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Utility {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  networks  Network[]
+}
+
+model Network {
+  id        String   @id @default(cuid())
+  utilityId String
+  utility   Utility  @relation(fields: [utilityId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  nodes     Node[]
+  edges     Edge[]
+  sectors   Sector[]
+  readings  MeterReading[]
+
+  @@index([utilityId])
+}
+
+model Node {
+  id         String   @id @default(cuid())
+  networkId  String
+  network    Network  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  externalId String
+  name       String
+  type       String
+  lat        Float
+  lng        Float
+  createdAt  DateTime @default(now())
+
+  @@unique([networkId, externalId])
+  @@index([networkId])
+}
+
+model Edge {
+  id         String   @id @default(cuid())
+  networkId  String
+  network    Network  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  externalId String
+  name       String?
+  fromNode   String
+  toNode     String
+  sectorId   String?
+  createdAt  DateTime @default(now())
+
+  @@unique([networkId, externalId])
+  @@index([networkId])
+  @@index([sectorId])
+}
+
+model Sector {
+  id                      String   @id @default(cuid())
+  networkId               String
+  network                 Network  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  externalId              String
+  name                    String
+  inflowMeterIds          String[]
+  outflowMeterIds         String[]
+  absoluteLossThresholdM3 Float    @default(5.0)
+  relativeLossThresholdPct Float   @default(8.0)
+  status                  String   @default("unknown")
+  netLossM3               Float?
+  message                 String?
+  lastBalancedAt          DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([networkId, externalId])
+  @@index([networkId, status])
+}
+
+model MeterReading {
+  id                 String   @id @default(cuid())
+  networkId          String
+  network            Network  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  meterId            String
+  timestamp          DateTime
+  cumulativeVolumeM3 Float
+  flowRateLps        Float?
+  createdAt          DateTime @default(now())
+
+  @@index([networkId, meterId, timestamp])
+  @@index([timestamp])
+}
+
+model AlertEvent {
+  id        String   @id @default(cuid())
+  networkId String
+  sectorId  String
+  status    String
+  message   String
+  notified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([networkId, sectorId, createdAt])
+}
