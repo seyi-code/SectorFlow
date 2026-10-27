@@ -2,43 +2,41 @@
 
 **Distributed Smart-Water Leak Detection & Volumetric Balancing**
 
-SectorFlow helps small utilities and rural networks find leaks by balancing water volume pumped vs received across sectors. Simple flow meters + mass-balance math + live map status.
+https://github.com/seyi-code/SectorFlow
 
-Repo: https://github.com/seyi-code/SectorFlow
+## Production foundation
 
-## Production-ready foundation includes
-
-- Pure NumPy mass-balance engine (`services/flow-engine/balance.py`)
-- Unit tests for balanced / high-loss / insufficient-data cases
-- Alert fatigue controls: cooldown, consecutive-window hysteresis, meter heartbeat offline detection (`alerts.py`)
-- Next.js UI with sector list + SVG network map (color: green / orange / red)
-- Fastify API scaffold for topology + telemetry ingest
-- Docker Compose (Postgres 5433, Redis 6380)
-- Deploy notes
-
-## What you still must do for a real pilot
-
-1. Persist topology + readings in Postgres (replace in-memory maps).
-2. Validate meters and complete topology on a real network.
-3. Wire notifications (email / SMS / webhook) behind `AlertManager.should_notify`.
-4. Field validation SOP before acting on HIGH alerts.
-5. Observability (metrics for loss volume, offline meters, alert rate).
-6. MQTT bridge if meters publish to MQTT.
-
-## Core formula
-
-Net Loss = Σ Volume_In − Σ Volume_Out
-
-Rolling baseline + absolute/relative thresholds + consecutive anomaly count drive status.
+- Prisma schema: Utility → Network → Node / Edge / Sector / MeterReading / AlertEvent
+- Fastify API (Prisma-backed): utilities, networks, topology, telemetry ingest, balance jobs
+- NumPy mass-balance engine + unit tests
+- Alert fatigue: cooldown, hysteresis, meter heartbeat
+- Demo seed: `POST /api/v1/networks/seed-demo`
 
 ## Quick start
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d
-cd services/flow-engine && pip install -r requirements.txt && python -m pytest tests/
-cd ../api && npm i && npm run dev
-cd ../../apps/web && npm i && npm run dev
+cd services/api && npm i && npx prisma generate && npx prisma migrate dev
+npm run dev   # port 4001
+
+cd ../flow-engine && pip install -r requirements.txt && pytest && python worker.py
+cd ../../apps/web && npm i && npm run dev   # port 3001
 ```
+
+### API flow
+
+1. `POST /api/v1/networks/seed-demo` → get `networkId`
+2. `GET /api/v1/networks/:id/topology` → map data
+3. `POST /api/v1/telemetry` with readings
+4. `POST /api/v1/balance/:sectorId` → queue job
+5. `GET /api/v1/balance/:sectorId` → result + persisted sector status
+
+## Still required for production pilot
+
+- Field validation of meters and topology
+- Notification channels behind AlertManager
+- OpenTelemetry + backups
+- MQTT bridge if meters publish MQTT
 
 ## License
 
